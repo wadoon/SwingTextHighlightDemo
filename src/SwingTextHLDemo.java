@@ -1,5 +1,8 @@
 import com.sun.corba.se.impl.ior.iiop.JavaSerializationComponent;
 import org.apache.commons.io.FileUtils;
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
+import org.fife.ui.rtextarea.RTextScrollPane;
 
 import javax.swing.*;
 import javax.swing.text.BadLocationException;
@@ -18,13 +21,16 @@ public class SwingTextHLDemo extends JFrame {
 
     JPanel root = new JPanel(new BorderLayout());
     Box keywords = new Box(BoxLayout.Y_AXIS);
-    JEditorPane editorPane = new JEditorPane();
-    JScrollPane pane = new JScrollPane(editorPane);
+    RSyntaxTextArea editorPane = new RSyntaxTextArea();
+    RTextScrollPane pane = new RTextScrollPane(editorPane);
 
     String[] labelStrings = {"public", "int", "class", "try", "if", "catch"};
     JLabel[] lbl = new JLabel[labelStrings.length];
 
     SwingTextHLDemo() throws IOException {
+        editorPane.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
+        editorPane.setCodeFoldingEnabled(true);
+
         // Read an Java File just as a demo:
         String content = FileUtils.readFileToString(new File("HelloWorld.java"), "utf-8");
 
@@ -57,6 +63,8 @@ public class SwingTextHLDemo extends JFrame {
 
         @Override
         protected void paintChildren(Graphics g) {
+            long startTime = System.currentTimeMillis();
+
             // the fun part... I hope this scales
 
             Graphics2D g2 = (Graphics2D) g;
@@ -123,7 +131,9 @@ public class SwingTextHLDemo extends JFrame {
                     g2.setColor(fill);
                     g2.fillRoundRect(r.x, r.y, r.width, r.height, 5, 5);
                 }
+
             }
+            System.out.format("Painting took: %d ms%n",  System.currentTimeMillis() - startTime);
         }
     }
 
@@ -134,17 +144,30 @@ public class SwingTextHLDemo extends JFrame {
         String needle = " " + text + " "; // only match word
         JViewport view = pane.getViewport();
 
-        for (int off = 0; (found = content.indexOf(needle, off)) >= 0; off++) {
+
+
+        Point pointStart = pane.getVisibleRect().getLocation();
+        int off = editorPane.viewToModel(pointStart); // text position of the left corner
+
+        for (; (found = content.indexOf(needle, off)) >= 0; off++) {
             try {
+
+
                 // translation due to words matching
                 Rectangle start = editorPane.modelToView(found + 1);
                 Rectangle end = editorPane.modelToView(found + text.length() + 1);
                 start.width = end.x - start.x;
 
+                Point p = SwingUtilities.convertPoint(
+                    editorPane, start.x, start.y, getGlassPane()
+                );
+
+                start.setLocation(p);
+
                 // translate within viewport
-                start.translate(
+                /*start.translate(
                         -view.getViewPosition().x,
-                        -view.getViewPosition().y);
+                        -view.getViewPosition().y);*/
 
                 // if place is not visible
                 if(view.getVisibleRect().contains(start))
@@ -154,14 +177,13 @@ public class SwingTextHLDemo extends JFrame {
             }
             off = found + text.length();
         }
-        System.out.println(list);
         return list;
     }
 
 
     public static void main(String[] args) throws IOException {
         SwingTextHLDemo a = new SwingTextHLDemo();
-        a.setSize(500, 500);
+        a.setSize(700, 500);
         a.setVisible(true);
     }
 }
